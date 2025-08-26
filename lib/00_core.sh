@@ -82,6 +82,7 @@ _PACMAN_detect() {
   _issue2pacman sun_tools "SunOS" && return
   _issue2pacman pacman "Arch Linux" && return
   _issue2pacman dpkg "Debian GNU/Linux" && return
+  _issue2pacman pkg "Termux" && return
   _issue2pacman dpkg "Ubuntu" && return
   _issue2pacman cave "Exherbo Linux" && return
   _issue2pacman yum "CentOS" && return
@@ -121,7 +122,7 @@ _PACMAN_detect() {
     command -v "apt-cyg" >/dev/null && _PACMAN="apt_cyg" && return
   fi
   [ -x "/usr/bin/apt-get" ] && _PACMAN="dpkg" && return
-  [ -x "/data/data/com.termux/files/usr/bin/apt-get" ] && _PACMAN="dpkg" && return
+  [ -x "/data/data/com.termux/files/usr/bin/pkg" ] && _PACMAN="pkg" && return
   [ -x "/usr/bin/cave" ] && _PACMAN="cave" && return
   [ -x "/usr/bin/dnf" ] && _PACMAN="dnf" && return
   [ -x "/usr/bin/yum" ] && _PACMAN="yum" && return
@@ -154,6 +155,7 @@ _translate_w() {
 
   case "$_PACMAN" in
   "dpkg")     local_opt="-d";;
+  "pkg")     local_opt="-d";;
   "cave")     local_opt="-f";;
   "dnf")      local_opt="--downloadonly";;
   "macports") local_opt="fetch";;
@@ -210,6 +212,7 @@ _translate_noconfirm() {
   # FIXME: Update environment DEBIAN_FRONTEND=noninteractive
   # FIXME: There is also --force-yes for a stronger case
   "dpkg")   local_opt="--yes";;
+  "pkg")   local_opt="--yes";;
   "dnf")    local_opt="--assumeyes";;
   "yum")    local_opt="--assumeyes";;
   # FIXME: pacman has 'assume-yes' and 'assume-no'

@@ -3,10 +3,10 @@
 # Purpose: A wrapper for all Unix package managers
 # License: Fair license (http://www.opensource.org/licenses/fair)
 # Source : http://github.com/icy/pacapt/
-# Version: 3.0.7
+# Version: 3.0.8
 # Authors: Anh K. Huynh et al.
 
-# Copyright (C) 2010 - 2022 \
+# Copyright (C) 2010 - 2025 \
 #                           | 10sr (@10sr)
 #                           | Alexander Dupuy (@dupuy)
 #                           | Anh K. Huynh (@icy)
@@ -47,9 +47,9 @@
 
 _print_pacapt_version() {
   cat <<_EOF_
-pacapt version '3.0.7'
+pacapt version '3.0.8'
 
-Copyright (C) 2010 - 2022 \\
+Copyright (C) 2010 - 2025 \\
                           | 10sr (@10sr)
                           | Alexander Dupuy (@dupuy)
                           | Anh K. Huynh (@icy)
@@ -89,7 +89,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 _EOF_
 }
 
-export PACAPT_VERSION='3.0.7'
+export PACAPT_VERSION='3.0.8'
 
 _help() {
   cat <<'EOF'
@@ -265,6 +265,7 @@ _PACMAN_detect() {
   _issue2pacman sun_tools "SunOS" && return
   _issue2pacman pacman "Arch Linux" && return
   _issue2pacman dpkg "Debian GNU/Linux" && return
+  _issue2pacman pkg "Termux" && return
   _issue2pacman dpkg "Ubuntu" && return
   _issue2pacman cave "Exherbo Linux" && return
   _issue2pacman yum "CentOS" && return
@@ -304,7 +305,7 @@ _PACMAN_detect() {
     command -v "apt-cyg" >/dev/null && _PACMAN="apt_cyg" && return
   fi
   [ -x "/usr/bin/apt-get" ] && _PACMAN="dpkg" && return
-  [ -x "/data/data/com.termux/files/usr/bin/apt-get" ] && _PACMAN="dpkg" && return
+  [ -x "/data/data/com.termux/files/usr/bin/pkg" ] && _PACMAN="pkg" && return
   [ -x "/usr/bin/cave" ] && _PACMAN="cave" && return
   [ -x "/usr/bin/dnf" ] && _PACMAN="dnf" && return
   [ -x "/usr/bin/yum" ] && _PACMAN="yum" && return
@@ -335,6 +336,7 @@ _translate_w() {
 
   case "$_PACMAN" in
   "dpkg")     local_opt="-d";;
+  "pkg")     local_opt="-d";;
   "cave")     local_opt="-f";;
   "dnf")      local_opt="--downloadonly";;
   "macports") local_opt="fetch";;
@@ -389,6 +391,7 @@ _translate_noconfirm() {
   # FIXME: Update environment DEBIAN_FRONTEND=noninteractive
   # FIXME: There is also --force-yes for a stronger case
   "dpkg")   local_opt="--yes";;
+  "pkg")   local_opt="--yes";;
   "dnf")    local_opt="--assumeyes";;
   "yum")    local_opt="--assumeyes";;
   # FIXME: pacman has 'assume-yes' and 'assume-no'
@@ -1600,6 +1603,178 @@ pkgng_S() {
 
 
 
+_pkg_init() {
+  :
+}
+
+pkg_Q() {
+  if [ "$_TOPT" = "q" ]; then
+    dpkg -l \
+    | grep -E '^[hi]i' \
+    | awk '{print $2}'
+  elif [ -z "$_TOPT" ]; then
+    dpkg -l "$@" \
+    | grep -E '^[hi]i'
+  else
+    _not_implemented
+  fi
+}
+
+pkg_Qc() {
+  pkg changelog "$@"
+}
+
+pkg_Qi() {
+  dpkg-query -s "$@"
+}
+
+pkg_Qe() {
+  apt-mark showmanual "$@"
+}
+
+pkg_Qk() {
+  _require_programs debsums
+  debsums "$@"
+}
+
+pkg_Ql() {
+  if [ $# -ge 1 ]; then
+    dpkg-query -L "$@"
+    return
+  fi
+
+  dpkg -l \
+  | grep -E '^[hi]i' \
+  | awk '{print $2}' \
+  | while read -r _pkg; do
+      if [ "$_TOPT" = "q" ]; then
+        dpkg-query -L "$_pkg"
+      else
+        dpkg-query -L "$_pkg" \
+        | while read -r _line; do
+            echo "$_pkg $_line"
+          done
+      fi
+    done
+}
+
+pkg_Qo() {
+  if cmd="$(command -v -- "$@")"; then
+    dpkg-query -S "$cmd"
+  else
+    dpkg-query -S "$@"
+  fi
+}
+
+pkg_Qp() {
+  dpkg-deb -I "$@"
+}
+
+pkg_Qu() {
+  pkg upgrade --trivial-only "$@"
+}
+
+pkg_Qs() {
+  # dpkg >= 1.16.2 dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\t${Version}\t${binary:Summary}\n'
+  dpkg-query -W -f='${Status} ${Package}\t${Version}\t${Description}\n' \
+  | grep -E '^((hold)|(install)|(deinstall))' \
+  | sed -r -e 's#^(\w+ ){3}##g' \
+  | grep -Ei "${@:-.}" \
+  | _quiet_field1
+}
+
+pkg_Rs() {
+  if [ -z "$_TOPT" ]; then
+    apt-get autoremove "$@"
+  else
+    _not_implemented
+  fi
+}
+
+pkg_Rn() {
+  apt-get purge "$@"
+}
+
+pkg_Rns() {
+  apt-get --purge autoremove "$@"
+}
+
+pkg_R() {
+  pkg remove "$@"
+}
+
+pkg_Sg() {
+  _require_programs tasksel
+  
+  if [ $# -gt 0 ]; then
+    tasksel --task-packages "$@"
+  else
+    tasksel --list-task
+  fi
+}
+
+pkg_Si() {
+  apt-cache show "$@"
+}
+
+pkg_Suy() {
+  pkg update \
+  && pkg upgrade "$@" \
+  && apt-get dist-upgrade "$@"
+}
+
+pkg_Su() {
+  pkg upgrade "$@" \
+  && apt-get dist-upgrade "$@"
+}
+
+
+pkg_Sy() {
+  pkg update "$@"
+}
+
+pkg_Ss() {
+  apt-cache search "${@:-.}" \
+  | while read -r name _ desc; do
+      if ! dpkg-query -W "$name" > /dev/null 2>&1; then
+        printf "package/%s \n    %s\n" \
+          "$name" "$desc"
+      else
+        dpkg-query -W -f='package/${binary:Package} ${Version}\n    ${binary:Summary}\n' "$name"
+      fi
+  done
+}
+
+pkg_Sc() {
+  pkg clean "$@"
+}
+
+pkg_Scc() {
+  pkg autoclean "$@"
+}
+
+pkg_S() {
+  # shellcheck disable=SC2086
+  pkg install $_TOPT "$@"
+}
+
+pkg_U() {
+  dpkg -i "$@"
+}
+
+pkg_Sii() {
+  apt-cache rdepends "$@"
+}
+
+pkg_Sccc() {
+  rm -fv /var/cache/apt/*.bin
+  rm -fv /var/cache/apt/archives/*.*
+  rm -fv /var/lib/apt/lists/*.*
+  pkg autoclean
+}
+
+
+
 _pkg_tools_init() {
   :
 }
@@ -2689,6 +2864,32 @@ _validate_operation() {
   "pkgng_Sc") ;;
   "pkgng_Scc") ;;
   "pkgng_S") ;;
+  "pkg_Q") ;;
+  "pkg_Qc") ;;
+  "pkg_Qi") ;;
+  "pkg_Qe") ;;
+  "pkg_Qk") ;;
+  "pkg_Ql") ;;
+  "pkg_Qo") ;;
+  "pkg_Qp") ;;
+  "pkg_Qu") ;;
+  "pkg_Qs") ;;
+  "pkg_Rs") ;;
+  "pkg_Rn") ;;
+  "pkg_Rns") ;;
+  "pkg_R") ;;
+  "pkg_Sg") ;;
+  "pkg_Si") ;;
+  "pkg_Suy") ;;
+  "pkg_Su") ;;
+  "pkg_Sy") ;;
+  "pkg_Ss") ;;
+  "pkg_Sc") ;;
+  "pkg_Scc") ;;
+  "pkg_S") ;;
+  "pkg_U") ;;
+  "pkg_Sii") ;;
+  "pkg_Sccc") ;;
   "pkg_tools_Qi") ;;
   "pkg_tools_Ql") ;;
   "pkg_tools_Qo") ;;
